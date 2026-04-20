@@ -10,3 +10,4 @@ int initGPU();
 void pageableMemTest();
 void pinnedMemTest();
 void streamingTest();
+void dotProductTest();

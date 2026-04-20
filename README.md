@@ -25,3 +25,5 @@ make clean
 [ROCM Documentation](https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/hip_runtime_api/initialization.html#querying-and-setting-gpus)
 
 [ROCM Demo Repo](https://github.com/ROCm/rocm-examples#)
+
+[ROCM Intro Videos](https://www.youtube.com/playlist?list=PLx15eYqzJifehAxhWRD6T35GZwAqM9IK4)

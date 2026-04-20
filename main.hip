@@ -20,10 +20,12 @@ int main() {
 	}
 
 
-	pageableMemTest();
-	pinnedMemTest();
+	// pageableMemTest();
+	// pinnedMemTest();
 
-	streamingTest();
+	// streamingTest();
+
+	dotProductTest();
 
 
 

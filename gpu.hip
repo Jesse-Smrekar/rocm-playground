@@ -3,6 +3,9 @@
 // #include <iomanip>
 #include <cstring>
 #include <unistd.h>
+#include <chrono>
+#include <algorithm>
+
 
 #include "kernels.h"
 
@@ -289,3 +292,85 @@ void streamingTest() {
 	dumpMem(host_output, arraySize);
 }
 
+
+long current_millis() {
+	return (long)std::chrono::duration_cast<std::chrono::milliseconds>(
+		std::chrono::system_clock::now().time_since_epoch()
+		).count();
+}
+
+void dotProductTest() {
+
+	hipDeviceProp_t prop;
+	HIP_CHECK(hipGetDeviceProperties(&prop, 0));
+	printf("-> Shared mem per block: %zu bytes\n", prop.sharedMemPerBlock);
+	printf("-> Max threads per block:     %d\n", prop.maxThreadsPerBlock);
+
+
+	//LLAMA 3 70B does operations on matricies of size ~ 8192 square. Lets start with that. 
+	int A_ROWS = 8192;
+	int A_COLS = 8192;
+	int B_ROWS = A_COLS;
+	int B_COLS = 8192;
+
+	// initialize matricies with random floats between 0 and 1
+	float *A, *B;
+	HIP_CHECK(hipHostMalloc(&A, A_COLS * A_ROWS * sizeof(float)));
+	HIP_CHECK(hipHostMalloc(&B, B_COLS * B_ROWS * sizeof(float)));
+
+	for (long i=0; i < (A_COLS * A_ROWS); i++) {
+        A[i] = (float)rand() / (float)RAND_MAX;
+	}
+
+	for (long i=0; i < (B_COLS * B_ROWS); i++) {
+        B[i] = (float)rand() / (float)RAND_MAX;
+	}
+
+
+	// copy matricies to device memory
+	float *A_DEVICE, *B_DEVICE, *RESULT;
+	HIP_CHECK(hipMalloc(&A_DEVICE, A_ROWS * A_COLS));
+    HIP_CHECK(hipMalloc(&B_DEVICE, A_COLS * B_COLS));
+	HIP_CHECK(hipMalloc(&RESULT, A_ROWS * B_COLS));
+
+	HIP_CHECK(hipMemcpy(A_DEVICE, A, A_COLS * A_ROWS * sizeof(float), hipMemcpyHostToDevice));
+	HIP_CHECK(hipMemcpy(B_DEVICE, B, B_COLS * B_ROWS * sizeof(float), hipMemcpyHostToDevice));
+
+
+	// ----------------- START -----------------
+	long start_millis = current_millis();
+
+
+	int threads = 256; // means 16 by 16 tile
+	// std::min(prop.maxThreadsPerBlock, ??);
+	int blocks = (A_ROWS * B_COLS) / threads;
+
+	if (blocks - ((A_ROWS * B_COLS) / threads) > 0) {
+		// if the tiling doesn't fully cover the matrix, add 1
+		blocks += 1;
+	}
+
+	std::cout << "Running a kernel with Blocks: " << blocks << " and Threads: " << threads << std::endl;
+
+	sleep(5);
+	
+	dot_product<<<dim3(blocks), dim3(threads), 0>>>
+	(A_ROWS, A_COLS, B_ROWS, B_COLS, A, B, RESULT);
+
+
+
+	HIP_CHECK(hipStreamSynchronize(0));
+
+	long end_millis = current_millis();
+	long duration = end_millis - start_millis;
+	printf("Duration: %ld\n", duration);
+	// ----------------- END -----------------
+
+
+
+
+
+	// dot_product_tiled<<<dim3(blocks), dim3(threads), 0>>>
+	// (A_ROWS, A_COLS, B_ROWS, B_COLS, 32, A, B, RESULT);
+
+}
